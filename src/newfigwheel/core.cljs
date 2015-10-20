@@ -4,7 +4,7 @@
 
 (defonce table-atom (r/atom {
   :selected-rows []
-  :rows [0 1 2 3 4 5 6 7 8 9]}))
+  :rows (range 0 100)}))
 
 (defn element-data-id [element]
   (int (.getAttribute element "data-id")))
@@ -18,8 +18,4 @@
             ))))}]
     (vec (map (fn [row-i] [:tr (if (> (.indexOf (to-array (@table-atom :selected-rows )) row-i) -1) {:style {:background "green"}} {}) [:td {:data-id row-i} row-i ]]) (:rows @table-atom))))))
 
-(.log js/console "lodeu")
-(swap! table-atom assoc :selected-rows (conj (@table-atom :selected-rows) 4))
 (r/render-component [timetable]  (.getElementById js/document "app"))
-(swap! table-atom assoc :selected-rows [])
-(deref table-atom)
