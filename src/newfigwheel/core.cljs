@@ -14,7 +14,7 @@
 (defonce ui-atom
   (atom {}))
 
-(defn select-cell-range
+(defn- select-cell-range
   "given a state atom value, returns a new value where
   all the rows from start to end have their :selected? key
   set to 'destination'"
