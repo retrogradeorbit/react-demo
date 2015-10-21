@@ -2,20 +2,50 @@
     (:require
       [reagent.core :as r]))
 
-(defonce table-atom (r/atom {
-  :selected-rows []
-  :rows (range 0 100)}))
+;; the atom that stores the "document".
+(defonce table-atom
+  (r/atom
+   {:rows (into {}
+                (for [n (range 100)]
+                  [n {:selected? false
+                      :content (str "cell " n)}]))}))
 
-(defn element-data-id [element]
-  (int (.getAttribute element "data-id")))
+;; we store our user interface state here.
+(defonce ui-atom
+  (atom {}))
+
+(defn select-cell-range
+  "given a state atom value, returns a new value where
+  all the rows from start to end have their :selected? key
+  set to value"
+  [state start end value]
+  (reduce
+   #(assoc-in %1 [:rows %2 :selected?] value)
+   state
+   (range (min start end) (inc (max start end)))))
 
 (defn timetable []
-  (vec (concat [:table {:on-mouse-leave (fn [] (js/setTimeout #(swap! table-atom assoc :selected-rows []) 1500)) :on-mouse-move
-      (js/customDrag (fn [e]
-        (let [target (.-target e) tag-name (.-tagName target) data-id (element-data-id target)]
-          (when (= tag-name "TD") 
-            (swap! table-atom assoc :selected-rows (distinct (conj (@table-atom :selected-rows) data-id))) 
-            ))))}]
-    (vec (map (fn [row-i] [:tr (if (> (.indexOf (to-array (@table-atom :selected-rows )) row-i) -1) {:style {:background "green"}} {}) [:td {:data-id row-i} row-i ]]) (:rows @table-atom))))))
+  (let [state @table-atom]
+    [:table {:style {:-webkit-user-select "none" :user-select "none"}}
+     (map
+      (fn [key]
+        (let [{:keys [selected? content]} ((state :rows) key)]
+          ^{:key key}
+          [:tr [:td
+                {:style {:background (if selected? "green" "none")}
+                 :on-mouse-down #(let [destination (not selected?)]
+                                   ;; destination holds what selected? should be set to. click-start remebers cell
+                                   (swap! ui-atom assoc :click-start key :destination destination)
+                                   ;; select this cell so click immediately selects
+                                   (swap! table-atom assoc-in [:rows key :selected?] destination))
+                 :on-mouse-enter #(let [{:keys [click-start destination]} @ui-atom]
+                                    (when click-start
+                                      ;; select from the click-start through to the present cell
+                                      (swap! table-atom select-cell-range click-start key destination)
+                                      ;; set click-start now to this cell to avoid re selecting cells over and over
+                                      (swap! ui-atom assoc :click-start key)))
+                 :on-mouse-up #(swap! ui-atom dissoc :click-start :destination)}
+                content]]))
+      (-> state :rows keys sort))]))
 
 (r/render-component [timetable]  (.getElementById js/document "app"))
